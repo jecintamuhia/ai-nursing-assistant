@@ -1,0 +1,26 @@
+@"
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pycache
+
+# Environment
+.env
+venv/
+.venv/
+env/
+
+# Data & embeddings (too large for git)
+data/
+embeddings/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+"@ | Out-File -FilePath .gitignore -Encoding utf8NoBOM
