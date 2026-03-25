@@ -3,134 +3,213 @@
 import { useRef, useState } from 'react'
 import { api } from '@/src/lib/api'
 
-interface SidebarProps {
+interface Tab { id: string; label: string; icon: string }
+interface Props {
   pdfs: string[]
+  isReady: boolean
   activeTab: string
   onTabChange: (tab: string) => void
   onUploadSuccess: () => void
   onToast: (msg: string) => void
+  tabs: Tab[]
 }
 
-const TABS = [
-  { id: 'chat', label: 'Ask AI',       icon: '💬' },
-  { id: 'quiz', label: 'Quiz',         icon: '📝' },
-  { id: 'arch', label: 'Architecture', icon: '🏗' },
-]
-
-export default function Sidebar({ pdfs, activeTab, onTabChange, onUploadSuccess, onToast }: SidebarProps) {
+export default function Sidebar({ pdfs, isReady, activeTab, onTabChange, onUploadSuccess, onToast, tabs }: Props) {
   const [dragging,  setDragging]  = useState(false)
   const [uploading, setUploading] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
   async function handleFiles(files: FileList | File[]) {
-    const pdfsOnly = Array.from(files).filter(f => f.name.endsWith('.pdf'))
-    if (!pdfsOnly.length) { onToast('Only PDF files please'); return }
+    const list = Array.from(files).filter(f => f.name.toLowerCase().endsWith('.pdf'))
+    if (!list.length) { onToast('Only PDF files are accepted'); return }
     setUploading(true)
-    for (const file of pdfsOnly) {
+    for (const file of list) {
       onToast(`Uploading ${file.name}…`)
       try {
         const res = await api.upload(file)
         onToast(`✓ ${file.name} — ${res.chunks} chunks indexed`)
         onUploadSuccess()
       } catch (e: any) {
-        onToast(`✗ ${e.message}`)
+        onToast(`✗ Failed: ${e.message}`)
       }
     }
     setUploading(false)
   }
 
   return (
-    <aside className="w-64 flex-shrink-0 flex flex-col gap-3">
+    <aside style={{
+      width: '260px',
+      flexShrink: 0,
+      display: 'flex',
+      flexDirection: 'column',
+      height: '100vh',
+      background: '#0a1020',
+      borderRight: '1px solid #1a2540',
+      overflow: 'hidden',
+    }}>
 
-      {/* Upload */}
-      <div className="bg-[#161b24] border border-[#2a3244] rounded-xl overflow-hidden">
-        <div className="px-4 py-2.5 border-b border-[#2a3244] text-[10px] font-sans font-bold tracking-widest uppercase text-[#7a8499]">
-          📂 Upload PDFs
-        </div>
-        <div className="p-3">
-          <div
-            onClick={() => inputRef.current?.click()}
-            onDragOver={e => { e.preventDefault(); setDragging(true) }}
-            onDragLeave={() => setDragging(false)}
-            onDrop={e => { e.preventDefault(); setDragging(false); handleFiles(e.dataTransfer.files) }}
-            className={`border-[1.5px] border-dashed rounded-lg p-5 text-center cursor-pointer transition-all duration-200 ${
-              dragging
-                ? 'border-[#00d4a0] bg-[rgba(0,212,160,0.12)]'
-                : 'border-[#334060] bg-[#1e2533] hover:border-[#00d4a0] hover:bg-[rgba(0,212,160,0.06)]'
-            }`}
-          >
-            <input
-              ref={inputRef}
-              type="file"
-              accept=".pdf"
-              multiple
-              className="hidden"
-              onChange={e => e.target.files && handleFiles(e.target.files)}
-            />
-            <div className="text-2xl mb-2">📄</div>
-            <p className="text-xs text-[#7a8499] leading-relaxed">
-              <span className="text-[#00d4a0] font-semibold">Click or drag</span> PDFs here
-              <br />Textbooks · Notes · Guidelines
-            </p>
-            {uploading && (
-              <div className="mt-3 flex justify-center gap-1">
-                <div className="typing-dot" />
-                <div className="typing-dot" />
-                <div className="typing-dot" />
-              </div>
-            )}
+      <div style={{ padding: '24px 20px 20px', borderBottom: '1px solid #1a2540' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{
+            width: '38px', height: '38px',
+            borderRadius: '12px',
+            background: '#34d399',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: '18px', fontWeight: 800,
+            color: '#041a10',
+            boxShadow: '0 0 16px rgba(52,211,153,0.3)',
+            flexShrink: 0,
+          }}>✚</div>
+          <div>
+            <div style={{ fontFamily: 'Lora, Georgia, serif', fontSize: '19px', fontWeight: 500, color: '#dde2ed', letterSpacing: '-0.01em' }}>
+              Nurse<span style={{ color: '#34d399' }}>AI</span>
+            </div>
+            <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '9px', color: '#3a4a65', letterSpacing: '0.12em', marginTop: '1px' }}>
+              CLINICAL ASSISTANT
+            </div>
           </div>
         </div>
       </div>
 
-      {/* PDF list */}
-      {pdfs.length > 0 && (
-        <div className="bg-[#161b24] border border-[#2a3244] rounded-xl overflow-hidden">
-          <div className="px-4 py-2.5 border-b border-[#2a3244] flex items-center justify-between">
-            <span className="text-[10px] font-sans font-bold tracking-widest uppercase text-[#7a8499]">
-              📚 Knowledge Base
-            </span>
-            <span className="text-[10px] font-sans font-bold px-2 py-0.5 rounded-full bg-[rgba(0,212,160,0.12)] text-[#00d4a0] border border-[rgba(0,212,160,0.2)]">
-              {pdfs.length}
-            </span>
-          </div>
-          <div className="p-3 flex flex-col gap-1.5 max-h-48 overflow-y-auto">
-            {pdfs.map(pdf => (
-              <div key={pdf} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-[#1e2533] border border-[#2a3244]">
-                <span className="text-[#00d4a0] text-sm flex-shrink-0">📄</span>
-                <span className="text-xs text-[#e8edf5] truncate" title={pdf}>{pdf}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '20px 16px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
 
-      {/* Nav */}
-      <div className="bg-[#161b24] border border-[#2a3244] rounded-xl overflow-hidden">
-        <div className="px-4 py-2.5 border-b border-[#2a3244] text-[10px] font-sans font-bold tracking-widest uppercase text-[#7a8499]">
-          ⚡ Navigate
+        <div>
+          <div className="label" style={{ marginBottom: '10px' }}>Knowledge Base</div>
+          <div
+            onClick={() => !uploading && inputRef.current?.click()}
+            onDragOver={e => { e.preventDefault(); setDragging(true) }}
+            onDragLeave={() => setDragging(false)}
+            onDrop={e => { e.preventDefault(); setDragging(false); handleFiles(e.dataTransfer.files) }}
+            style={{
+              border: dragging ? '2px dashed #34d399' : '2px dashed #1a2540',
+              borderRadius: '14px',
+              padding: '24px 16px',
+              textAlign: 'center',
+              cursor: uploading ? 'wait' : 'pointer',
+              background: dragging ? 'rgba(52,211,153,0.05)' : 'transparent',
+              transition: 'all 0.2s',
+            }}
+          >
+            <input ref={inputRef} type="file" accept=".pdf" multiple style={{ display: 'none' }}
+              onChange={e => e.target.files && handleFiles(e.target.files)} />
+
+            {uploading ? (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
+                <div style={{ display: 'flex', gap: '5px', justifyContent: 'center' }}>
+                  <div className="dot" /><div className="dot" /><div className="dot" />
+                </div>
+                <span style={{ fontSize: '12px', color: '#34d399', fontFamily: 'JetBrains Mono, monospace' }}>Indexing…</span>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
+                <div style={{
+                  width: '44px', height: '44px',
+                  borderRadius: '12px',
+                  background: 'rgba(52,211,153,0.08)',
+                  border: '1px solid rgba(52,211,153,0.15)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: '20px',
+                }}>📄</div>
+                <div>
+                  <div style={{ fontSize: '13px', fontWeight: 500, color: '#8899aa', marginBottom: '3px' }}>
+                    Drop PDFs here
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#3a4a65' }}>
+                    or <span style={{ color: '#34d399', cursor: 'pointer' }}>click to browse</span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
-        <div className="p-2 flex flex-col gap-1">
-          {TABS.map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => onTabChange(tab.id)}
-              className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-left transition-all font-sans font-semibold text-sm ${
-                activeTab === tab.id
-                  ? 'text-[#00d4a0] bg-[rgba(0,212,160,0.08)]'
-                  : 'text-[#7a8499] hover:text-[#e8edf5] hover:bg-[#1e2533]'
-              }`}
-            >
-              <span className={`w-7 h-7 rounded-lg flex items-center justify-center text-sm border transition-all ${
-                activeTab === tab.id
-                  ? 'bg-[rgba(0,212,160,0.12)] border-[rgba(0,212,160,0.3)]'
-                  : 'bg-[#1e2533] border-[#2a3244]'
-              }`}>
-                {tab.icon}
-              </span>
-              {tab.label}
-            </button>
-          ))}
+
+        {pdfs.length > 0 && (
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+              <div className="label">Loaded Files</div>
+              <span className="tag">{pdfs.length}</span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              {pdfs.map((pdf, i) => (
+                <div key={pdf} className="fade-up" style={{
+                  display: 'flex', alignItems: 'center', gap: '10px',
+                  padding: '9px 12px',
+                  background: '#0d1525',
+                  border: '1px solid #1a2540',
+                  borderRadius: '10px',
+                  animationDelay: `${i * 40}ms`,
+                }}>
+                  <span style={{ fontSize: '14px', flexShrink: 0 }}>📄</span>
+                  <span style={{ fontSize: '12px', color: '#8899aa', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={pdf}>
+                    {pdf}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div>
+          <div className="label" style={{ marginBottom: '10px' }}>Navigation</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            {tabs.map(tab => {
+              const active = activeTab === tab.id
+              return (
+                <button key={tab.id} onClick={() => onTabChange(tab.id)} style={{
+                  display: 'flex', alignItems: 'center', gap: '12px',
+                  width: '100%', padding: '11px 14px',
+                  borderRadius: '12px',
+                  border: active ? '1px solid rgba(52,211,153,0.25)' : '1px solid transparent',
+                  background: active ? 'rgba(52,211,153,0.07)' : 'transparent',
+                  color: active ? '#34d399' : '#64748b',
+                  fontSize: '14px',
+                  fontWeight: active ? 600 : 400,
+                  fontFamily: 'Outfit, sans-serif',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  transition: 'all 0.15s',
+                }}>
+                  <span style={{
+                    width: '32px', height: '32px',
+                    borderRadius: '9px',
+                    background: active ? 'rgba(52,211,153,0.12)' : '#0d1525',
+                    border: `1px solid ${active ? 'rgba(52,211,153,0.2)' : '#1a2540'}`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: '16px',
+                    flexShrink: 0,
+                  }}>{tab.icon}</span>
+                  <span>{tab.label}</span>
+                  {active && (
+                    <div style={{ marginLeft: 'auto', width: '6px', height: '6px', borderRadius: '50%', background: '#34d399' }} />
+                  )}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      </div>
+
+      <div style={{ padding: '16px', borderTop: '1px solid #1a2540', flexShrink: 0 }}>
+        <div style={{
+          padding: '12px 14px',
+          borderRadius: '12px',
+          background: isReady ? 'rgba(52,211,153,0.05)' : '#0d1525',
+          border: `1px solid ${isReady ? 'rgba(52,211,153,0.2)' : '#1a2540'}`,
+          display: 'flex', alignItems: 'center', gap: '10px',
+        }}>
+          <div style={{
+            width: '8px', height: '8px', borderRadius: '50%', flexShrink: 0,
+            background: isReady ? '#34d399' : '#334155',
+            boxShadow: isReady ? '0 0 6px rgba(52,211,153,0.5)' : 'none',
+          }} />
+          <div>
+            <div style={{ fontSize: '12px', fontWeight: 600, color: isReady ? '#34d399' : '#64748b' }}>
+              {isReady ? 'Ready to answer' : 'Awaiting documents'}
+            </div>
+            <div style={{ fontSize: '11px', fontFamily: 'JetBrains Mono, monospace', color: '#3a4a65', marginTop: '2px' }}>
+              {isReady ? `${pdfs.length} PDF${pdfs.length !== 1 ? 's' : ''} indexed` : 'Upload a PDF to begin'}
+            </div>
+          </div>
         </div>
       </div>
 

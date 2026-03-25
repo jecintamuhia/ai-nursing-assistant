@@ -5,148 +5,254 @@ import { api } from '@/src/lib/api'
 import type { Message } from '@/src/types'
 
 const SUGGESTIONS = [
-  'What are the 5 rights of medication administration?',
-  'Describe early signs of sepsis',
-  'What is normal blood pressure range?',
-  'Explain wound assessment TIMES',
+  { label: 'Medication rights',  q: 'What are the 5 rights of medication administration?' },
+  { label: 'Sepsis recognition', q: 'Describe the early clinical signs of sepsis' },
+  { label: 'Normal vitals',      q: 'What are normal ranges for all vital signs in adults?' },
+  { label: 'Wound assessment',   q: 'Explain the TIMES framework for wound assessment' },
+  { label: 'IV fluid types',     q: 'When are isotonic vs hypotonic IV fluids indicated?' },
+  { label: 'Pain assessment',    q: 'How is the FACES pain scale used in clinical practice?' },
 ]
 
-let msgId = 0
-const uid = () => String(++msgId)
+let _n = 0
+const uid = () => `m${++_n}`
 
 export default function ChatPanel({ onToast }: { onToast: (m: string) => void }) {
   const [messages, setMessages] = useState<Message[]>([])
   const [input,    setInput]    = useState('')
   const [loading,  setLoading]  = useState(false)
-  const bottomRef = useRef<HTMLDivElement>(null)
+  const endRef   = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+    endRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages, loading])
 
-  async function send(question?: string) {
-    const q = (question ?? input).trim()
-    if (!q || loading) return
+  async function send(q?: string) {
+    const text = (q ?? input).trim()
+    if (!text || loading) return
     setInput('')
-    setMessages(prev => [...prev, { id: uid(), role: 'user', content: q, timestamp: new Date() }])
+    setMessages(p => [...p, { id: uid(), role: 'user', content: text, timestamp: new Date() }])
     setLoading(true)
     try {
-      const res = await api.ask(q)
-      setMessages(prev => [...prev, {
-        id: uid(), role: 'ai', content: res.answer,
-        sources: res.sources, timestamp: new Date(),
-      }])
-    } catch (e: any) {
-      setMessages(prev => [...prev, {
-        id: uid(), role: 'ai',
-        content: `Error: ${e.message}. Is the backend running on port 8000?`,
-        timestamp: new Date(),
-      }])
+      const res = await api.ask(text)
+      setMessages(p => [...p, { id: uid(), role: 'ai', content: res.answer, sources: res.sources, timestamp: new Date() }])
+    } catch {
+      setMessages(p => [...p, { id: uid(), role: 'ai', content: 'Could not reach backend. Is the server running on port 8000?', timestamp: new Date() }])
     }
     setLoading(false)
+    setTimeout(() => inputRef.current?.focus(), 80)
   }
 
-  async function clearChat() {
+  async function clear() {
     await api.clearMemory().catch(() => {})
     setMessages([])
     onToast('Conversation cleared')
   }
 
-  return (
-    <div className="flex flex-col gap-3">
-      <div className="bg-[#161b24] border border-[#2a3244] rounded-xl flex flex-col h-[460px] overflow-hidden">
+  const empty = messages.length === 0
 
-        {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-[#2a3244] flex-shrink-0">
-          <span className="text-[10px] font-sans font-bold tracking-widest uppercase text-[#7a8499]">
-            Clinical Q&A
-          </span>
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#070b14' }}>
+
+      <div style={{ flex: 1, overflowY: 'auto', padding: '32px 40px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+
+        {empty ? (
+          <div className="fade-in" style={{ margin: 'auto', textAlign: 'center', maxWidth: '520px' }}>
+            <div style={{
+              width: '64px', height: '64px',
+              borderRadius: '20px',
+              background: 'rgba(52,211,153,0.08)',
+              border: '1px solid rgba(52,211,153,0.15)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: '28px',
+              margin: '0 auto 24px',
+            }}>🩺</div>
+
+            <h1 style={{ fontFamily: 'Lora, Georgia, serif', fontSize: '26px', fontWeight: 500, color: '#dde2ed', letterSpacing: '-0.01em', marginBottom: '12px' }}>
+              Clinical Knowledge Assistant
+            </h1>
+            <p style={{ fontSize: '15px', color: '#64748b', lineHeight: 1.75, marginBottom: '36px' }}>
+              Upload your nursing PDFs, then ask any clinical question. Every answer is grounded in your documents with page-level citations.
+            </p>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
+              {SUGGESTIONS.map((s, i) => (
+                <button key={s.label} onClick={() => send(s.q)}
+                  className={`fade-up d${i + 1}`}
+                  style={{
+                    textAlign: 'left',
+                    padding: '14px 16px',
+                    borderRadius: '14px',
+                    background: '#0d1525',
+                    border: '1px solid #1a2540',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                  }}
+                  onMouseEnter={e => {
+                    const el = e.currentTarget as HTMLElement
+                    el.style.borderColor = 'rgba(52,211,153,0.3)'
+                    el.style.background  = 'rgba(52,211,153,0.05)'
+                  }}
+                  onMouseLeave={e => {
+                    const el = e.currentTarget as HTMLElement
+                    el.style.borderColor = '#1a2540'
+                    el.style.background  = '#0d1525'
+                  }}
+                >
+                  <div style={{ fontSize: '11px', fontWeight: 600, color: '#34d399', fontFamily: 'JetBrains Mono, monospace', letterSpacing: '0.05em', marginBottom: '5px', textTransform: 'uppercase' }}>
+                    {s.label}
+                  </div>
+                  <div style={{ fontSize: '12.5px', color: '#64748b', lineHeight: 1.55 }}>
+                    {s.q}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <>
+            {messages.map((msg) => (
+              <div key={msg.id}
+                className="fade-up"
+                style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
+                <div style={{ maxWidth: '68%' }}>
+
+                  <div style={{
+                    fontSize: '10px',
+                    fontFamily: 'JetBrains Mono, monospace',
+                    fontWeight: 600,
+                    letterSpacing: '0.08em',
+                    textTransform: 'uppercase',
+                    color: msg.role === 'user' ? '#34d399' : '#64748b',
+                    marginBottom: '6px',
+                    textAlign: msg.role === 'user' ? 'right' : 'left',
+                  }}>
+                    {msg.role === 'user' ? 'You' : 'NurseAI'}
+                  </div>
+
+                  <div style={{
+                    padding: '14px 18px',
+                    borderRadius: msg.role === 'user' ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
+                    background: msg.role === 'user' ? '#34d399' : '#0d1525',
+                    border:     msg.role === 'user' ? 'none' : '1px solid #1a2540',
+                    color:      msg.role === 'user' ? '#041a10' : '#c8d0e0',
+                    fontSize: '14.5px',
+                    lineHeight: 1.75,
+                    fontWeight: msg.role === 'user' ? 500 : 400,
+                    whiteSpace: 'pre-wrap',
+                    wordBreak: 'break-word',
+                  }}>
+                    {msg.content}
+                  </div>
+
+                  {msg.sources && msg.sources.length > 0 && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '8px' }}>
+                      {msg.sources.map((s, i) => (
+                        <div key={i} title={s.snippet} className="tag" style={{ cursor: 'help' }}>
+                          📄 {s.source} · p.{s.page}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+
+            {loading && (
+              <div className="fade-in" style={{ display: 'flex', justifyContent: 'flex-start' }}>
+                <div>
+                  <div style={{ fontSize: '10px', fontFamily: 'JetBrains Mono, monospace', fontWeight: 600, letterSpacing: '0.08em', color: '#64748b', marginBottom: '6px', textTransform: 'uppercase' }}>NurseAI</div>
+                  <div style={{
+                    display: 'inline-flex', gap: '5px', alignItems: 'center',
+                    padding: '14px 18px',
+                    background: '#0d1525',
+                    border: '1px solid #1a2540',
+                    borderRadius: '18px 18px 18px 4px',
+                  }}>
+                    <div className="dot" /><div className="dot" /><div className="dot" />
+                  </div>
+                </div>
+              </div>
+            )}
+            <div ref={endRef} />
+          </>
+        )}
+      </div>
+
+      <div style={{ padding: '20px 40px 28px', flexShrink: 0 }}>
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: '12px',
+          padding: '10px 12px 10px 20px',
+          background: '#0d1525',
+          border: '1px solid #1a2540',
+          borderRadius: '16px',
+          boxShadow: '0 4px 24px rgba(0,0,0,0.4)',
+          transition: 'border-color 0.2s',
+        }}>
+          <input
+            ref={inputRef}
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && !e.shiftKey && send()}
+            placeholder="Ask a clinical question…"
+            style={{
+              flex: 1,
+              background: 'transparent',
+              border: 'none',
+              outline: 'none',
+              fontSize: '14.5px',
+              color: '#dde2ed',
+              fontFamily: 'Outfit, sans-serif',
+            }}
+          />
+
+          {messages.length > 0 && (
+            <button onClick={clear} title="Clear conversation"
+              style={{
+                width: '34px', height: '34px',
+                borderRadius: '9px',
+                border: '1px solid #1a2540',
+                background: 'transparent',
+                color: '#3a4a65',
+                cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: '16px',
+                transition: 'all 0.15s',
+                flexShrink: 0,
+              }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#f87171'; (e.currentTarget as HTMLElement).style.borderColor = '#f87171' }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = '#3a4a65'; (e.currentTarget as HTMLElement).style.borderColor = '#1a2540' }}
+            >🗑</button>
+          )}
+
           <button
-            onClick={clearChat}
-            title="Clear conversation"
-            className="w-7 h-7 flex items-center justify-center rounded-lg border border-[#2a3244] text-[#7a8499] hover:text-[#e8edf5] hover:border-[#334060] transition-all text-sm"
+            onClick={() => send()}
+            disabled={loading || !input.trim()}
+            style={{
+              width: '40px', height: '40px',
+              borderRadius: '11px',
+              border: 'none',
+              background: input.trim() && !loading ? '#34d399' : '#0f1c30',
+              color:      input.trim() && !loading ? '#041a10' : '#334155',
+              cursor:     input.trim() && !loading ? 'pointer' : 'not-allowed',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: '18px',
+              transition: 'all 0.2s',
+              flexShrink: 0,
+              boxShadow: input.trim() && !loading ? '0 0 14px rgba(52,211,153,0.25)' : 'none',
+            }}
           >
-            ↺
+            {loading
+              ? <div className="spin" style={{ width: '16px', height: '16px', border: '2px solid #334155', borderTopColor: '#34d399', borderRadius: '50%' }} />
+              : '↑'
+            }
           </button>
         </div>
 
-        {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4">
-          {messages.length === 0 ? (
-            <div className="m-auto text-center animate-fade-in">
-              <div className="w-14 h-14 rounded-full bg-[rgba(0,212,160,0.12)] border border-[rgba(0,212,160,0.2)] flex items-center justify-center text-2xl mx-auto mb-4">
-                🩺
-              </div>
-              <h3 className="font-sans font-bold text-lg text-[#e8edf5] mb-2">Ask anything clinical</h3>
-              <p className="text-sm text-[#7a8499] leading-relaxed max-w-xs">
-                Upload nursing PDFs then ask questions. Every answer is grounded in your documents with source citations.
-              </p>
-            </div>
-          ) : (
-            messages.map(msg => (
-              <div key={msg.id} className={`flex flex-col gap-1.5 animate-fade-up ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
-                <div className={`max-w-[80%] px-4 py-2.5 text-sm leading-relaxed ${
-                  msg.role === 'user'
-                    ? 'bg-[#00d4a0] text-[#0a1010] font-medium rounded-[14px_14px_4px_14px]'
-                    : 'bg-[#1e2533] border border-[#2a3244] text-[#e8edf5] rounded-[14px_14px_14px_4px]'
-                }`}>
-                  {msg.content}
-                </div>
-                {msg.sources && msg.sources.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 max-w-[80%]">
-                    {msg.sources.map((s, i) => (
-                      <span key={i} title={s.snippet}
-                        className="text-[10px] font-sans font-semibold px-2.5 py-1 rounded-full bg-[rgba(0,212,160,0.12)] text-[#00d4a0] border border-[rgba(0,212,160,0.2)] cursor-help">
-                        📄 {s.source} p.{s.page}
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ))
-          )}
-          {loading && (
-            <div className="flex items-start animate-fade-up">
-              <div className="bg-[#1e2533] border border-[#2a3244] rounded-[14px_14px_14px_4px] px-4 py-3 flex gap-1.5">
-                <div className="typing-dot" /><div className="typing-dot" /><div className="typing-dot" />
-              </div>
-            </div>
-          )}
-          <div ref={bottomRef} />
-        </div>
-
-        {/* Input */}
-        <div className="p-3 border-t border-[#2a3244] flex-shrink-0">
-          <div className="flex gap-2">
-            <input
-              value={input}
-              onChange={e => setInput(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && send()}
-              placeholder="e.g. What is the normal SpO2 range?"
-              className="flex-1 bg-[#1e2533] border border-[#2a3244] rounded-lg px-3 py-2.5 text-sm text-[#e8edf5] placeholder-[#4a5568] outline-none focus:border-[#00d4a0] transition-colors"
-            />
-            <button
-              onClick={() => send()}
-              disabled={loading || !input.trim()}
-              className="w-10 h-10 bg-[#00d4a0] hover:bg-[#00a87e] disabled:opacity-40 disabled:cursor-not-allowed rounded-lg text-[#0a1010] font-bold text-lg flex items-center justify-center transition-colors flex-shrink-0"
-            >
-              ↑
-            </button>
-          </div>
+        <div style={{ textAlign: 'center', marginTop: '10px', fontSize: '11.5px', fontFamily: 'JetBrains Mono, monospace', color: '#1e2d45' }}>
+          Enter to send · answers grounded in your documents only
         </div>
       </div>
-
-      {/* Suggestions */}
-      {messages.length === 0 && (
-        <div className="flex flex-wrap gap-2">
-          {SUGGESTIONS.map(s => (
-            <button key={s} onClick={() => send(s)}
-              className="text-xs font-sans font-semibold px-3 py-1.5 rounded-full border border-[#334060] bg-[#1e2533] text-[#7a8499] hover:border-[#00d4a0] hover:text-[#00d4a0] transition-all">
-              {s}
-            </button>
-          ))}
-        </div>
-      )}
     </div>
   )
 }
